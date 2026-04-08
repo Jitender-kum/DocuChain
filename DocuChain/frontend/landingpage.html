@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DocuChain AI | The Ethereal Ledger</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed-variant": "#2f2ebe",
+                      "on-primary-container": "#0d0096",
+                      "primary": "#c0c1ff",
+                      "on-surface": "#e5e1e4",
+                      "secondary-container": "#03c6b2",
+                      "inverse-on-surface": "#313032",
+                      "surface-bright": "#39393b",
+                      "tertiary-container": "#7c87f3",
+                      "primary-fixed": "#e1e0ff",
+                      "on-tertiary-container": "#081486",
+                      "secondary": "#44e2cd",
+                      "on-secondary-fixed-variant": "#005047",
+                      "surface-tint": "#c0c1ff",
+                      "surface-variant": "#353437",
+                      "primary-container": "#8083ff",
+                      "on-secondary-fixed": "#00201c",
+                      "surface-container-lowest": "#0e0e10",
+                      "surface-dim": "#131315",
+                      "secondary-fixed-dim": "#3cddc7",
+                      "surface": "#131315",
+                      "outline-variant": "#464554",
+                      "surface-container": "#201f22",
+                      "on-background": "#e5e1e4",
+                      "on-secondary-container": "#004d44",
+                      "on-primary": "#1000a9",
+                      "surface-container-low": "#1c1b1d",
+                      "surface-container-high": "#2a2a2c",
+                      "background": "#131315",
+                      "on-secondary": "#003731",
+                      "secondary-fixed": "#62fae3",
+                      "inverse-surface": "#e5e1e4",
+                      "tertiary-fixed": "#e0e0ff",
+                      "tertiary-fixed-dim": "#bdc2ff",
+                      "on-tertiary": "#131e8c",
+                      "primary-fixed-dim": "#c0c1ff",
+                      "inverse-primary": "#494bd6",
+                      "surface-container-highest": "#353437",
+                      "on-surface-variant": "#c7c4d7",
+                      "error-container": "#93000a",
+                      "outline": "#908fa0",
+                      "on-error-container": "#ffdad6",
+                      "on-primary-fixed": "#07006c",
+                      "on-tertiary-fixed": "#000767",
+                      "tertiary": "#bdc2ff",
+                      "on-error": "#690005",
+                      "error": "#ffb4ab",
+                      "on-tertiary-fixed-variant": "#2f3aa3"
+              },
+              "borderRadius": {
+                      "DEFAULT": "1rem",
+                      "lg": "2rem",
+                      "xl": "3rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Plus Jakarta Sans"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .glass-panel {
+            background: rgba(53, 52, 55, 0.4);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+        .mesh-gradient {
+            background: radial-gradient(at 0% 0%, rgba(128, 131, 255, 0.15) 0px, transparent 50%),
+                        radial-gradient(at 100% 100%, rgba(68, 226, 205, 0.1) 0px, transparent 50%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface selection:bg-primary/30 min-h-screen flex flex-col overflow-x-hidden">
+<!-- Header (TopAppBar) -->
+<header class="fixed top-0 w-full z-50 bg-surface-variant/40 backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3),0_0_15px_rgba(192,193,255,0.08)]">
+<div class="flex justify-between items-center max-w-7xl mx-auto px-6 h-20">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-indigo-300 text-3xl" data-icon="hub">hub</span>
+<span class="text-2xl font-extrabold tracking-tighter text-indigo-300 dark:text-indigo-200 font-plus-jakarta">DocuChain AI</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-indigo-300/10 p-2 rounded-full hover:scale-105 transition-all duration-300">
+<span class="material-symbols-outlined text-secondary" data-icon="dark_mode">dark_mode</span>
+</button>
+<button class="hidden md:flex bg-primary-container text-on-primary-container px-6 py-2.5 rounded-full font-bold hover:scale-105 hover:shadow-indigo-500/20 transition-all duration-300 active:scale-95">
+                    Connect Wallet
+                </button>
+<!-- Mobile Menu Icon -->
+<button class="md:hidden text-indigo-300">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</div>
+</div>
+</header>
+<main class="flex-grow pt-20">
+<!-- Hero Section -->
+<section class="relative px-6 py-20 md:py-32 flex flex-col items-center text-center overflow-hidden mesh-gradient">
+<!-- Floating Elements Background -->
+<div class="absolute inset-0 pointer-events-none">
+<div class="absolute top-20 left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+<div class="absolute bottom-20 right-10 w-48 h-48 bg-secondary/10 rounded-full blur-3xl"></div>
+</div>
+<div class="z-10 max-w-4xl">
+<div class="inline-flex items-center gap-2 bg-surface-container-high px-4 py-1.5 rounded-full mb-8 border border-outline-variant/15">
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="text-xs font-bold tracking-widest uppercase text-secondary">Securing the Digital Future</span>
+</div>
+<h1 class="text-5xl md:text-8xl font-extrabold tracking-tighter mb-6 bg-gradient-to-br from-white via-primary to-secondary bg-clip-text text-transparent leading-[1.1]">
+                    The Ethereal Ledger.
+                </h1>
+<p class="text-lg md:text-xl text-on-surface-variant mb-10 max-w-2xl mx-auto leading-relaxed">
+                    AI-powered document orchestration on the blockchain. Verifiable, immutable, and intelligently context-aware for the decentralized era.
+                </p>
+<div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+<div class="p-[1px] bg-gradient-to-r from-primary to-secondary rounded-full group">
+<button class="bg-surface-container-lowest text-white px-10 py-5 rounded-full font-bold flex items-center gap-3 transition-all duration-300 group-hover:bg-transparent group-hover:text-on-primary-container">
+                            Connect Wallet
+                            <span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+</button>
+</div>
+<button class="text-on-surface hover:text-secondary px-10 py-5 font-bold transition-all duration-300">
+                        Explore Protocol
+                    </button>
+</div>
+</div>
+<!-- Hero Glass Graphic -->
+<div class="mt-20 relative w-full max-w-5xl mx-auto px-4">
+<div class="glass-panel border border-outline-variant/15 rounded-xl aspect-[16/9] shadow-2xl flex items-center justify-center relative overflow-hidden group">
+<img alt="Blockchain Interface" class="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700" data-alt="Futuristic holographic blockchain data nodes glowing in deep space with blue and teal light trails and abstract geometry" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2RsyJgUEwgTwDDNvQkyXBRAjSUJvKDNksC5RdjbmnUOfznnJfJgZQODzRSMXr9-M2AXkKV8wGwqBjpY8qwUEkArvrcDCPpXL82DZom7Z6mmxXGgIx11eXX_GvV1gdoodyCChPeamirF_NWAEIHcNWdtwo1bMQYH3aOyNOW80x8g_COy_JGV1AUbcda6l66BR9AwDWh_j0ftV6u1_4fkQDljO1M3MghbWFOkk35UfLR_9XdGEHR_0fh33kLdyos42pUBq97o5KVnXL"/>
+<div class="z-10 flex flex-col items-center">
+<div class="w-20 h-20 rounded-full bg-primary/20 backdrop-blur-xl flex items-center justify-center animate-pulse">
+<span class="material-symbols-outlined text-4xl text-primary" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Feature Bento Grid -->
+<section class="px-6 py-24 max-w-7xl mx-auto">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+<!-- Immutable Storage Card -->
+<div class="md:col-span-7 group relative overflow-hidden rounded-lg bg-surface-container-low p-10 border border-outline-variant/15 hover:shadow-[0_20px_50px_rgba(0,0,0,0.3),0_0_15px_rgba(192,193,255,0.08)] transition-all duration-500">
+<div class="absolute top-0 right-0 p-8">
+<span class="material-symbols-outlined text-7xl text-primary/10 group-hover:text-primary/20 transition-colors" data-icon="database">database</span>
+</div>
+<div class="relative z-10">
+<div class="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="lock">lock</span>
+</div>
+<h3 class="text-3xl font-bold mb-4">Immutable Storage</h3>
+<p class="text-on-surface-variant max-w-md leading-relaxed">
+                            Decentralized document archiving powered by IPFS and Arweave. Your records are mathematically permanent and cryptographically secured forever.
+                        </p>
+</div>
+</div>
+<!-- AI Verification Card -->
+<div class="md:col-span-5 group relative overflow-hidden rounded-lg bg-surface-container-low p-10 border border-outline-variant/15 hover:shadow-[0_20px_50px_rgba(0,0,0,0.3),0_0_15px_rgba(68,226,205,0.08)] transition-all duration-500">
+<div class="relative z-10">
+<div class="w-14 h-14 bg-secondary/10 rounded-2xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-secondary text-3xl" data-icon="query_stats">query_stats</span>
+</div>
+<h3 class="text-3xl font-bold mb-4">AI Verification</h3>
+<p class="text-on-surface-variant leading-relaxed">
+                            Automated forensic analysis of documents to detect tampering and ensure authenticity across multi-chain ecosystems.
+                        </p>
+</div>
+<div class="mt-8 flex gap-2">
+<span class="bg-secondary/20 text-secondary-fixed text-[10px] px-2 py-1 rounded uppercase font-bold tracking-widest">Active Scan</span>
+<div class="flex-grow bg-surface-container-highest h-px mt-2 opacity-30"></div>
+</div>
+</div>
+<!-- Chat with Context Card -->
+<div class="md:col-span-12 group relative overflow-hidden rounded-lg bg-surface-container-low p-12 border border-outline-variant/15 hover:shadow-[0_20px_50px_rgba(0,0,0,0.3)] transition-all duration-500">
+<div class="flex flex-col md:flex-row items-center gap-12">
+<div class="flex-1">
+<div class="w-16 h-16 bg-tertiary-container/20 rounded-full flex items-center justify-center mb-8">
+<span class="material-symbols-outlined text-tertiary text-4xl" data-icon="forum">forum</span>
+</div>
+<h3 class="text-4xl font-extrabold mb-6">Chat with Context</h3>
+<p class="text-on-surface-variant text-lg leading-relaxed max-w-xl">
+                                Leverage our proprietary RAG architecture to query thousands of on-chain documents instantly. Ask questions, summarize complex contracts, and extract data with zero-knowledge privacy.
+                            </p>
+<div class="mt-10 flex gap-6 items-center">
+<button class="text-secondary font-bold flex items-center gap-2 group/btn">
+                                    Learn about RAG 
+                                    <span class="material-symbols-outlined transition-transform group-hover/btn:translate-x-1" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+<div class="flex-1 w-full md:w-auto">
+<div class="glass-panel border border-outline-variant/10 rounded-xl p-6 shadow-xl space-y-4">
+<div class="flex gap-4 items-start">
+<div class="w-8 h-8 rounded-full bg-secondary/20 shrink-0"></div>
+<div class="bg-surface-container-high p-4 rounded-lg rounded-tl-none text-sm">Analyze the liability clause in the smart contract hash 0x71...</div>
+</div>
+<div class="flex gap-4 items-start justify-end">
+<div class="bg-primary/20 p-4 rounded-lg rounded-tr-none text-sm text-right">The liability is capped at 5,000 ETH, with exclusions for protocol breaches...</div>
+<div class="w-8 h-8 rounded-full bg-primary shrink-0"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Stats Section -->
+<section class="py-24 bg-zinc-950/50">
+<div class="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
+<div>
+<div class="text-5xl font-extrabold text-white mb-2">$4.2B</div>
+<div class="text-on-surface-variant text-sm font-label uppercase tracking-widest">Total Value Locked</div>
+</div>
+<div>
+<div class="text-5xl font-extrabold text-secondary mb-2">1.2M+</div>
+<div class="text-on-surface-variant text-sm font-label uppercase tracking-widest">Docs Processed</div>
+</div>
+<div>
+<div class="text-5xl font-extrabold text-white mb-2">0.02s</div>
+<div class="text-on-surface-variant text-sm font-label uppercase tracking-widest">Inference Time</div>
+</div>
+<div>
+<div class="text-5xl font-extrabold text-primary mb-2">24/7</div>
+<div class="text-on-surface-variant text-sm font-label uppercase tracking-widest">System Uptime</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-zinc-950 w-full py-12 px-12 border-t border-outline-variant/5">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center space-y-6 md:space-y-0">
+<div class="flex flex-col items-center md:items-start gap-4">
+<div class="text-lg font-bold text-indigo-300 font-plus-jakarta uppercase tracking-tighter flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="hub">hub</span>
+                    DocuChain AI
+                </div>
+<p class="text-slate-500 text-sm font-inter tracking-wide uppercase">© 2026 DocuChain AI. The Ethereal Ledger.</p>
+</div>
+<nav class="flex gap-8">
+<a class="text-slate-500 hover:text-teal-300 text-sm font-inter tracking-wide uppercase transition-colors duration-200" href="#">Protocol</a>
+<a class="text-slate-500 hover:text-teal-300 text-sm font-inter tracking-wide uppercase transition-colors duration-200" href="#">Governance</a>
+<a class="text-slate-500 hover:text-teal-300 text-sm font-inter tracking-wide uppercase transition-colors duration-200" href="#">Security</a>
+<a class="text-teal-400 font-semibold text-sm font-inter tracking-wide uppercase" href="#">Privacy</a>
+</nav>
+<div class="flex gap-4">
+<button class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center hover:translate-x-1 duration-200 transition-all text-indigo-300">
+<span class="material-symbols-outlined text-lg" data-icon="public">public</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center hover:translate-x-1 duration-200 transition-all text-indigo-300">
+<span class="material-symbols-outlined text-lg" data-icon="terminal">terminal</span>
+</button>
+</div>
+</div>
+</footer>
+</body></html>

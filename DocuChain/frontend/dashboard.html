@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DocuChain AI | Document Vault</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-surface": "#e5e1e4",
+                    "error-container": "#93000a",
+                    "inverse-primary": "#494bd6",
+                    "surface-dim": "#131315",
+                    "primary-fixed-dim": "#c0c1ff",
+                    "surface-tint": "#c0c1ff",
+                    "on-secondary": "#003731",
+                    "surface-container-highest": "#353437",
+                    "on-error": "#690005",
+                    "surface-container": "#201f22",
+                    "surface": "#131315",
+                    "on-primary-fixed": "#07006c",
+                    "on-primary-fixed-variant": "#2f2ebe",
+                    "on-surface-variant": "#c7c4d7",
+                    "secondary-fixed": "#62fae3",
+                    "surface-container-high": "#2a2a2c",
+                    "on-tertiary": "#131e8c",
+                    "tertiary-container": "#7c87f3",
+                    "on-surface": "#e5e1e4",
+                    "primary-container": "#8083ff",
+                    "surface-container-lowest": "#0e0e10",
+                    "secondary": "#44e2cd",
+                    "on-primary-container": "#0d0096",
+                    "background": "#131315",
+                    "surface-bright": "#39393b",
+                    "on-secondary-fixed": "#00201c",
+                    "secondary-fixed-dim": "#3cddc7",
+                    "on-tertiary-fixed-variant": "#2f3aa3",
+                    "on-error-container": "#ffdad6",
+                    "outline-variant": "#464554",
+                    "on-tertiary-container": "#081486",
+                    "on-secondary-container": "#004d44",
+                    "secondary-container": "#03c6b2",
+                    "primary": "#c0c1ff",
+                    "tertiary-fixed-dim": "#bdc2ff",
+                    "on-tertiary-fixed": "#000767",
+                    "outline": "#908fa0",
+                    "on-primary": "#1000a9",
+                    "on-background": "#e5e1e4",
+                    "tertiary-fixed": "#e0e0ff",
+                    "error": "#ffb4ab",
+                    "tertiary": "#bdc2ff",
+                    "surface-container-low": "#1c1b1d",
+                    "on-secondary-fixed-variant": "#005047",
+                    "surface-variant": "#353437",
+                    "primary-fixed": "#e1e0ff",
+                    "inverse-on-surface": "#313032"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #131315;
+            color: #e5e1e4;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        .mesh-gradient {
+            background: radial-gradient(circle at 20% 30%, rgba(128, 131, 255, 0.15) 0%, transparent 40%),
+                        radial-gradient(circle at 80% 70%, rgba(68, 226, 205, 0.1) 0%, transparent 40%);
+        }
+        .glass-panel {
+            background: rgba(32, 31, 34, 0.4);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+        .floating-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            background-image: radial-gradient(#c0c1ff 1px, transparent 1px);
+            background-size: 80px 80px;
+            opacity: 0.05;
+        }
+    </style>
+</head>
+<body class="font-body selection:bg-primary selection:text-on-primary">
+<div class="floating-particles"></div>
+<div class="fixed inset-0 mesh-gradient -z-10"></div>
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-slate-950/60 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.3),0_0_15px_rgba(192,193,255,0.08)]">
+<div class="flex justify-between items-center px-8 py-4 w-full max-w-screen-2xl mx-auto">
+<div class="flex items-center gap-8">
+<div class="text-2xl font-bold tracking-tighter text-indigo-200 font-headline">
+                    DocuChain AI
+                </div>
+<nav class="hidden md:flex items-center gap-6 font-plus-jakarta-sans tracking-tight">
+<a class="text-slate-400 hover:text-indigo-100 transition-colors" href="#">Dashboard</a>
+<a class="text-indigo-200 border-b-2 border-indigo-400 pb-1" href="#">Documents</a>
+<a class="text-slate-400 hover:text-indigo-100 transition-colors" href="#">Analytics</a>
+<a class="text-slate-400 hover:text-indigo-100 transition-colors" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 bg-white/5 rounded-full px-4 py-2 border border-white/5">
+<span class="material-symbols-outlined text-indigo-200 text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm text-on-surface-variant w-48 font-label" placeholder="Search Vault..." type="text"/>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 rounded-full hover:bg-white/5 hover:scale-[1.02] transition-all text-slate-400">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<button class="p-2 rounded-full hover:bg-white/5 hover:scale-[1.02] transition-all text-slate-400">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="bg-primary text-on-primary font-bold px-6 py-2 rounded-full hover:scale-[1.02] active:scale-95 transition-all text-sm font-headline">
+                        Connect Wallet
+                    </button>
+</div>
+</div>
+</div>
+<div class="h-px w-full bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent"></div>
+</header>
+<main class="pt-32 pb-24 px-8 max-w-screen-2xl mx-auto space-y-24">
+<!-- Section 1: Upload & Secure Document -->
+<section class="relative group">
+<div class="absolute -inset-4 bg-gradient-to-r from-primary/10 to-secondary/10 blur-3xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
+<div class="relative glass-panel rounded-xl p-12 text-center border border-white/5 min-h-[450px] flex flex-col items-center justify-center space-y-8 overflow-hidden">
+<div class="absolute top-0 right-0 p-8">
+<div class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary-container/20 text-secondary border border-secondary/20">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="text-xs font-bold tracking-widest uppercase">Nodes Online</span>
+</div>
+</div>
+<div class="space-y-4 max-w-2xl">
+<h1 class="text-5xl md:text-6xl font-extrabold font-headline tracking-tighter text-on-surface">
+                        Secure the <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Future</span> of your Data.
+                    </h1>
+<p class="text-lg text-on-surface-variant font-body">
+                        Drag and drop sensitive documents to encrypt them with AES-256 and anchor their hashes on the DocuChain AI ledger.
+                    </p>
+</div>
+<div class="w-full max-w-xl p-1 bg-gradient-to-r from-primary/20 via-white/5 to-secondary/20 rounded-lg">
+<div class="bg-surface-container-lowest rounded-lg border-2 border-dashed border-outline-variant/30 py-16 px-8 cursor-pointer hover:border-primary/40 transition-all flex flex-col items-center">
+<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-4xl text-primary" data-weight="fill">cloud_upload</span>
+</div>
+<span class="text-on-surface font-semibold text-lg">Click to upload or drag and drop</span>
+<span class="text-on-surface-variant text-sm mt-2">Maximum file size: 50MB (PDF, DOCX, TXT)</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: My Vault -->
+<section class="space-y-12">
+<div class="flex justify-between items-end">
+<div class="space-y-2">
+<h2 class="text-3xl font-bold font-headline text-on-surface tracking-tight">The Ledger Vault</h2>
+<p class="text-on-surface-variant">Your decentralized repository of truth.</p>
+</div>
+<div class="flex gap-4">
+<div class="flex bg-surface-container-high rounded-full p-1">
+<button class="px-6 py-2 rounded-full bg-surface-container-highest text-primary text-sm font-semibold">Grid</button>
+<button class="px-6 py-2 rounded-full text-on-surface-variant text-sm font-semibold">List</button>
+</div>
+</div>
+</div>
+<!-- Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+<!-- Card 1 -->
+<div class="group relative">
+<div class="absolute inset-0 bg-primary/5 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="relative glass-panel rounded-xl border border-white/10 p-8 flex flex-col gap-8 hover:translate-y-[-4px] transition-all duration-300">
+<div class="flex justify-between items-start">
+<div class="p-3 rounded-lg bg-surface-container-highest text-primary">
+<span class="material-symbols-outlined text-3xl">description</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-on-surface-variant font-bold tracking-widest uppercase">Verified 2026</span>
+<span class="material-symbols-outlined text-secondary text-sm" data-weight="fill">verified_user</span>
+</div>
+</div>
+<div class="space-y-2">
+<h3 class="text-xl font-bold font-headline text-on-surface">Legal_Framework_v4.pdf</h3>
+<p class="text-sm text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-xs">schedule</span>
+                                Uploaded 2 hours ago
+                            </p>
+</div>
+<div class="flex items-center gap-3 pt-4">
+<button class="flex-1 bg-secondary text-on-secondary font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all text-sm font-headline">
+<span class="material-symbols-outlined text-sm">chat_bubble</span>
+                                Chat with AI
+                            </button>
+<button class="bg-primary/20 text-primary border border-primary/20 hover:bg-primary hover:text-on-primary p-3 rounded-lg transition-all active:scale-90">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="group relative">
+<div class="absolute inset-0 bg-primary/5 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="relative glass-panel rounded-xl border border-white/10 p-8 flex flex-col gap-8 hover:translate-y-[-4px] transition-all duration-300">
+<div class="flex justify-between items-start">
+<div class="p-3 rounded-lg bg-surface-container-highest text-primary">
+<span class="material-symbols-outlined text-3xl">contract</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-on-surface-variant font-bold tracking-widest uppercase">On-Chain</span>
+<span class="material-symbols-outlined text-secondary text-sm" data-weight="fill">verified_user</span>
+</div>
+</div>
+<div class="space-y-2">
+<h3 class="text-xl font-bold font-headline text-on-surface">Smart_Contract_Audit_Final</h3>
+<p class="text-sm text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-xs">schedule</span>
+                                Uploaded Oct 24, 2025
+                            </p>
+</div>
+<div class="flex items-center gap-3 pt-4">
+<button class="flex-1 bg-secondary text-on-secondary font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all text-sm font-headline">
+<span class="material-symbols-outlined text-sm">chat_bubble</span>
+                                Chat with AI
+                            </button>
+<button class="bg-primary/20 text-primary border border-primary/20 hover:bg-primary hover:text-on-primary p-3 rounded-lg transition-all active:scale-90">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="group relative">
+<div class="absolute inset-0 bg-primary/5 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="relative glass-panel rounded-xl border border-white/10 p-8 flex flex-col gap-8 hover:translate-y-[-4px] transition-all duration-300">
+<div class="flex justify-between items-start">
+<div class="p-3 rounded-lg bg-surface-container-highest text-primary">
+<span class="material-symbols-outlined text-3xl">table_chart</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-on-surface-variant font-bold tracking-widest uppercase">Analysis</span>
+<span class="material-symbols-outlined text-secondary text-sm" data-weight="fill">verified_user</span>
+</div>
+</div>
+<div class="space-y-2">
+<h3 class="text-xl font-bold font-headline text-on-surface">Quarterly_Growth_Projection</h3>
+<p class="text-sm text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-xs">schedule</span>
+                                Uploaded Oct 20, 2025
+                            </p>
+</div>
+<div class="flex items-center gap-3 pt-4">
+<button class="flex-1 bg-secondary text-on-secondary font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all text-sm font-headline">
+<span class="material-symbols-outlined text-sm">chat_bubble</span>
+                                Chat with AI
+                            </button>
+<button class="bg-primary/20 text-primary border border-primary/20 hover:bg-primary hover:text-on-primary p-3 rounded-lg transition-all active:scale-90">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 4 (Empty State / Add) -->
+<div class="group relative h-full">
+<div class="relative h-full bg-surface-container-lowest/50 rounded-xl border-2 border-dashed border-outline-variant/20 p-8 flex flex-col items-center justify-center gap-4 hover:border-primary/40 hover:bg-surface-container-low/50 transition-all cursor-pointer">
+<span class="material-symbols-outlined text-4xl text-outline-variant group-hover:text-primary transition-colors">add_circle</span>
+<span class="text-on-surface-variant font-headline font-semibold">Add Document</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Stats Section -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-8">
+<div class="glass-panel p-8 rounded-xl border border-white/5 space-y-2">
+<span class="text-on-surface-variant font-label text-xs tracking-widest uppercase">Vault Storage</span>
+<div class="flex items-end gap-2">
+<h4 class="text-3xl font-bold font-headline">1.2</h4>
+<span class="text-primary font-bold pb-1 text-sm">TB</span>
+</div>
+</div>
+<div class="glass-panel p-8 rounded-xl border border-white/5 space-y-2">
+<span class="text-on-surface-variant font-label text-xs tracking-widest uppercase">Block Confirmations</span>
+<div class="flex items-end gap-2">
+<h4 class="text-3xl font-bold font-headline">4,902</h4>
+<span class="text-secondary font-bold pb-1 text-sm">Nodes</span>
+</div>
+</div>
+<div class="glass-panel p-8 rounded-xl border border-white/5 space-y-2">
+<span class="text-on-surface-variant font-label text-xs tracking-widest uppercase">Encryption Standard</span>
+<div class="flex items-end gap-2">
+<h4 class="text-3xl font-bold font-headline">AES</h4>
+<span class="text-primary font-bold pb-1 text-sm">256</span>
+</div>
+</div>
+<div class="glass-panel p-8 rounded-xl border border-white/5 space-y-2">
+<span class="text-on-surface-variant font-label text-xs tracking-widest uppercase">Network Health</span>
+<div class="flex items-end gap-2">
+<h4 class="text-3xl font-bold font-headline">99.9</h4>
+<span class="text-secondary font-bold pb-1 text-sm">%</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-slate-950 w-full py-12 border-t border-white/5">
+<div class="flex flex-col md:flex-row justify-between items-center px-12 gap-6 max-w-screen-2xl mx-auto">
+<div class="flex flex-col gap-2">
+<div class="text-indigo-400 font-semibold font-headline">DocuChain AI</div>
+<div class="font-inter text-xs tracking-wide uppercase text-slate-500">
+                    © 2026 DocuChain AI. The Ethereal Ledger.
+                </div>
+</div>
+<div class="flex gap-8">
+<a class="font-inter text-xs tracking-wide uppercase text-slate-500 hover:text-indigo-200 transition-colors" href="#">Privacy Policy</a>
+<a class="font-inter text-xs tracking-wide uppercase text-slate-500 hover:text-indigo-200 transition-colors" href="#">Terms of Service</a>
+<a class="font-inter text-xs tracking-wide uppercase text-slate-500 hover:text-indigo-200 transition-colors" href="#">Security Audit</a>
+</div>
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-all">
+<span class="material-symbols-outlined text-sm text-indigo-300">public</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-all">
+<span class="material-symbols-outlined text-sm text-indigo-300">hub</span>
+</div>
+</div>
+</div>
+</footer>
+</body></html>
