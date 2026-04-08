@@ -13,11 +13,9 @@ contract DocumentRegistry {
     mapping(address => Document[]) private ownerToDocuments;
 
     // Event emitted when a document is uploaded
-    event DocumentUploaded(
-        string ipfsHash,
-        string fileName,
-        uint256 uploadTime,
-        address indexed owner
+    event DocumentAdded(
+        address indexed owner,
+        string documentHash
     );
 
     /**
@@ -26,7 +24,7 @@ contract DocumentRegistry {
      * @param _fileName The name of the file.
      */
     function uploadDocument(string memory _ipfsHash, string memory _fileName) public {
-        require(bytes(_ipfsHash).length > 0, "IPFS hash cannot be empty");
+        require(bytes(_ipfsHash).length > 0, "Invalid hash");
         require(bytes(_fileName).length > 0, "File name cannot be empty");
 
         Document memory newDoc = Document({
@@ -38,15 +36,14 @@ contract DocumentRegistry {
 
         ownerToDocuments[msg.sender].push(newDoc);
 
-        emit DocumentUploaded(_ipfsHash, _fileName, block.timestamp, msg.sender);
+        emit DocumentAdded(msg.sender, _ipfsHash);
     }
 
     /**
-     * @dev Retrieve all documents for a specific user (owner).
-     * @param _owner The address of the user.
+     * @dev Retrieve all documents for msg.sender to prevent spoofing.
      * @return Array of Document structs belonging to the user.
      */
-    function getDocumentsByOwner(address _owner) public view returns (Document[] memory) {
-        return ownerToDocuments[_owner];
+    function getUserDocuments() public view returns (Document[] memory) {
+        return ownerToDocuments[msg.sender];
     }
 }

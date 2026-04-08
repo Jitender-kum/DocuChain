@@ -26,7 +26,7 @@ const DocumentVault = ({ walletAddress }) => {
       }
 
       const contract = new ethers.Contract(contractAddress, abi, provider);
-      const docs = await contract.getDocumentsByOwner(walletAddress);
+      const docs = await contract.getUserDocuments();
       
       const formattedDocs = docs.map(doc => ({
         ipfsHash: doc.ipfsHash,
