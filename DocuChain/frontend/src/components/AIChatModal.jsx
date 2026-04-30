@@ -2,13 +2,25 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Loader2, Bot, User, Clock } from 'lucide-react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { db } from '../utils/db';
-
+import { ethers } from 'ethers';
+import {
+  DOCUCHAIN_SIGN_MESSAGE,
+  deriveKeyFromPassword,
+  deriveKeyFromSignature,
+  decryptDataUrlCipherToDataUrl,
+} from '../utils/cryptoUtils';
 const AIChatModal = ({ documentCid, documentName, onClose }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingHistory, setIsFetchingHistory] = useState(true);
   const [hasMore, setHasMore] = useState(true);
+  
+  const [unlockedContent, setUnlockedContent] = useState(null);
+  const [isFetchingDoc, setIsFetchingDoc] = useState(true);
+  const [unlockPassword, setUnlockPassword] = useState('');
+  const [unlockBusy, setUnlockBusy] = useState(false);
+  const [unlockError, setUnlockError] = useState('');
   
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -45,19 +57,85 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
       });
       
     } catch (err) {
-      console.error("Failed to load chat history:", err);
+      // Ignore
     } finally {
       setIsFetchingHistory(false);
     }
   };
 
   useEffect(() => {
+    const initDoc = async () => {
+      setIsFetchingDoc(true);
+      try {
+        if (documentName.startsWith('[U]-')) {
+          const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${documentCid}`;
+          const response = await fetch(ipfsUrl);
+          if (!response.ok) throw new Error("Failed to fetch document");
+          const blob = await response.blob();
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setUnlockedContent(reader.result);
+            setIsFetchingDoc(false);
+          };
+          reader.readAsDataURL(blob);
+          return;
+        } else {
+          setUnlockedContent(null);
+        }
+      } catch (e) {
+        // Ignore
+      }
+      setIsFetchingDoc(false);
+    };
+
     setMessages([]);
     setHasMore(true);
+    initDoc();
     loadMessages(0).then(() => {
       setTimeout(scrollToBottom, 50);
     });
-  }, [documentCid]);
+  }, [documentCid, documentName]);
+
+  const handleDecryptAndUnlock = async (key) => {
+    setUnlockBusy(true);
+    setUnlockError('');
+    try {
+      const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${documentCid}`;
+      const response = await fetch(ipfsUrl);
+      if (!response.ok) throw new Error("Failed to fetch document from IPFS.");
+      const encryptedText = await response.text();
+
+      const decryptedDataUrl = decryptDataUrlCipherToDataUrl(encryptedText, key);
+      setUnlockedContent(decryptedDataUrl);
+    } catch (e) {
+      setUnlockError(e.message || "Decryption failed.");
+    } finally {
+      setUnlockBusy(false);
+    }
+  };
+
+  const handleUnlockPasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!unlockPassword.trim()) return;
+    const key = deriveKeyFromPassword(unlockPassword.trim());
+    await handleDecryptAndUnlock(key);
+  };
+
+  const handleUnlockWalletClick = async () => {
+    try {
+      setUnlockBusy(true);
+      setUnlockError('');
+      if (!window.ethereum) throw new Error("MetaMask is not installed.");
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const signature = await signer.signMessage(DOCUCHAIN_SIGN_MESSAGE);
+      const key = deriveKeyFromSignature(signature);
+      await handleDecryptAndUnlock(key);
+    } catch (e) {
+      setUnlockError(e.message || "Wallet unlock failed.");
+      setUnlockBusy(false);
+    }
+  };
 
   const handleScroll = async () => {
     if (!chatContainerRef.current || isFetchingHistory || !hasMore) return;
@@ -106,34 +184,22 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
     setTimeout(scrollToBottom, 10);
 
     try {
-      // 1. Fetch file from IPFS Gateway
-      const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${documentCid}`;
-      const response = await fetch(ipfsUrl);
-      if (!response.ok) throw new Error("Failed to fetch document from IPFS gateway.");
-      const blob = await response.blob();
+      // Parse the Data URL
+      const mimeType = unlockedContent.split(',')[0].split(':')[1].split(';')[0];
+      const base64Data = unlockedContent.split(',')[1];
 
-      // 2. Determine MIME Type
-      let mimeType = blob.type;
-      if (!mimeType) {
-         if (documentName.toLowerCase().endsWith('.png')) mimeType = 'image/png';
-         else if (documentName.toLowerCase().endsWith('.jpg') || documentName.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
-         else if (documentName.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
-         else mimeType = 'application/pdf'; // fallback
+      // Limit to roughly 2MB max for the free tier API
+      if (base64Data.length > 2800000) { 
+         throw new Error("Document is too large for the AI to process on the current tier. Please upload a smaller document.");
       }
 
-      // Convert Blob to Base64
-      const getBase64 = (blob) => new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result.split(',')[1]);
-        reader.readAsDataURL(blob);
-      });
-
-      const base64Data = await getBase64(blob);
-      const imagePart = {
-        inlineData: { data: base64Data, mimeType: mimeType || 'application/pdf' },
+      const documentPart = {
+        inlineData: {
+          data: base64Data,
+          mimeType: mimeType
+        }
       };
 
-      // 3. Call Gemini API
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (!apiKey) throw new Error("Gemini API key is not configured.");
       
@@ -142,7 +208,7 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
 
       const prompt = `Answer this request based on the provided document: ${userText}`;
       
-      const result = await model.generateContent([prompt, imagePart]);
+      const result = await model.generateContent([prompt, documentPart]);
       const resultResponse = await result.response;
       const text = resultResponse.text();
 
@@ -152,7 +218,6 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
       setTimeout(scrollToBottom, 10);
 
     } catch (error) {
-      console.error("Chat Error:", error);
       const errorMsg = `Sorry, I encountered an error: ${error.message}`;
       setMessages(prev => [...prev, { role: 'ai', text: errorMsg }]);
       setTimeout(scrollToBottom, 10);
@@ -183,85 +248,136 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
           </button>
         </div>
 
-        {/* Chat History */}
-        <div 
-          ref={chatContainerRef}
-          onScroll={handleScroll}
-          className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-slate-900/50 scroll-smooth transition-colors"
-        >
-          {isFetchingHistory && hasMore && (
-            <div className="flex justify-center py-4">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/5 shadow-sm transition-colors">
-                <Loader2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400 animate-spin" />
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Loading older messages...</span>
-              </div>
-            </div>
-          )}
-          
-          {messages.map((m, i) => (
-            <div key={m.id || i} className={`flex gap-4 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {m.role === 'ai' && (
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex-shrink-0 flex items-center justify-center text-white shadow-md mt-1">
-                  <Bot className="w-4 h-4" />
+        {isFetchingDoc ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-4">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+            <p className="text-slate-500 dark:text-slate-400">Fetching document status...</p>
+          </div>
+        ) : !unlockedContent ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-slate-900/50">
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 max-w-sm w-full">
+              <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2 text-center">Encrypted Document</h4>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">Unlock this document to enable AI chat.</p>
+              
+              {unlockError && (
+                <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm rounded-xl border border-rose-200 dark:border-rose-500/20">
+                  {unlockError}
                 </div>
               )}
-              <div className={`p-4 rounded-2xl max-w-[85%] transition-colors ${
-                m.role === 'user' 
-                  ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-tr-none shadow-md' 
-                  : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-tl-none shadow-sm'
-              }`}>
-                <p className="text-sm md:text-base whitespace-pre-wrap leading-relaxed">{m.text}</p>
-                {m.timestamp && (
-                  <div className={`text-[10px] mt-2 flex items-center justify-end gap-1 ${m.role === 'user' ? 'text-teal-100/70' : 'text-slate-400 dark:text-slate-500'}`}>
-                    <Clock className="w-3 h-3" />
-                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                )}
-              </div>
-              {m.role === 'user' && (
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-emerald-400 flex-shrink-0 flex items-center justify-center text-white shadow-md mt-1">
-                  <User className="w-4 h-4" />
-                </div>
-              )}
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex gap-4 justify-start animate-in fade-in zoom-in slide-in-from-bottom-2 duration-300">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex-shrink-0 flex items-center justify-center text-white shadow-md mt-1">
-                <Bot className="w-4 h-4" />
-              </div>
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-tl-none shadow-sm flex items-center gap-3 transition-colors">
-                <Loader2 className="w-5 h-5 animate-spin text-indigo-500 dark:text-indigo-400" />
-                <span className="text-sm font-medium text-slate-500 dark:text-slate-400 animate-pulse">AI is reading your document...</span>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
 
-        {/* Input */}
-        <div className="p-5 border-t border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/80 z-10 transition-colors">
-          <form 
-            onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-            className="flex items-center gap-3 relative max-w-3xl mx-auto"
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question about this document..."
-              className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-5 py-3.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 pr-14 transition-all shadow-inner"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              className="absolute right-2 p-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:shadow-[0_4px_15px_rgba(99,102,241,0.4)] dark:hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] disabled:opacity-50 disabled:hover:shadow-none transition-all"
+              {documentName.startsWith('[W]-') ? (
+                <button
+                  type="button"
+                  onClick={handleUnlockWalletClick}
+                  disabled={unlockBusy}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white"
+                >
+                  {unlockBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                  Unlock with Wallet
+                </button>
+              ) : (
+                <form onSubmit={handleUnlockPasswordSubmit} className="space-y-4">
+                  <input
+                    type="password"
+                    value={unlockPassword}
+                    onChange={(e) => setUnlockPassword(e.target.value)}
+                    placeholder="Enter password..."
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={unlockBusy || !unlockPassword.trim()}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white"
+                  >
+                    {unlockBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Unlock with Password'}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Chat History */}
+            <div 
+              ref={chatContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-slate-900/50 scroll-smooth transition-colors"
             >
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
-        </div>
+              {isFetchingHistory && hasMore && (
+                <div className="flex justify-center py-4">
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/5 shadow-sm transition-colors">
+                    <Loader2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400 animate-spin" />
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Loading older messages...</span>
+                  </div>
+                </div>
+              )}
+              
+              {messages.map((m, i) => (
+                <div key={m.id || i} className={`flex gap-4 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {m.role === 'ai' && (
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex-shrink-0 flex items-center justify-center text-white shadow-md mt-1">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                  )}
+                  <div className={`p-4 rounded-2xl max-w-[85%] transition-colors ${
+                    m.role === 'user' 
+                      ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-tr-none shadow-md' 
+                      : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-tl-none shadow-sm'
+                  }`}>
+                    <p className="text-sm md:text-base whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                    {m.timestamp && (
+                      <div className={`text-[10px] mt-2 flex items-center justify-end gap-1 ${m.role === 'user' ? 'text-teal-100/70' : 'text-slate-400 dark:text-slate-500'}`}>
+                        <Clock className="w-3 h-3" />
+                        {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
+                  {m.role === 'user' && (
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-emerald-400 flex-shrink-0 flex items-center justify-center text-white shadow-md mt-1">
+                      <User className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex gap-4 justify-start animate-in fade-in zoom-in slide-in-from-bottom-2 duration-300">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex-shrink-0 flex items-center justify-center text-white shadow-md mt-1">
+                    <Bot className="w-4 h-4" />
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-tl-none shadow-sm flex items-center gap-3 transition-colors">
+                    <Loader2 className="w-5 h-5 animate-spin text-indigo-500 dark:text-indigo-400" />
+                    <span className="text-sm font-medium text-slate-500 dark:text-slate-400 animate-pulse">AI is reading your document...</span>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="p-5 border-t border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/80 z-10 transition-colors">
+              <form 
+                onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+                className="flex items-center gap-3 relative max-w-3xl mx-auto"
+              >
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask a question about this document..."
+                  className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-5 py-3.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 pr-14 transition-all shadow-inner"
+                  disabled={isLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !input.trim()}
+                  className="absolute right-2 p-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:shadow-[0_4px_15px_rgba(99,102,241,0.4)] dark:hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] disabled:opacity-50 disabled:hover:shadow-none transition-all"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              </form>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
