@@ -9,6 +9,33 @@ import {
   deriveKeyFromSignature,
   decryptDataUrlCipherToDataUrl,
 } from '../utils/cryptoUtils';
+const extractTextFromPdf = (pdfString) => {
+  try {
+    const matches = pdfString.match(/\(([^)]+)\)/g);
+    if (!matches) return "";
+    
+    const textSegments = matches
+      .map(m => m.slice(1, -1))
+      .filter(t => {
+        if (t.length < 2) return false;
+        if (t.startsWith('/')) return false;
+        return true;
+      });
+      
+    return textSegments.join(" ").replace(/\s+/g, ' ').trim();
+  } catch (err) {
+    console.error("[DocuChain Chat] Error parsing PDF text streams:", err);
+    return "";
+  }
+};
+
+const isLowComplexity = (text) => {
+  const clean = text.trim().toLowerCase();
+  if (clean.length < 15) return true;
+  const shortPhrases = ['hi', 'hello', 'hey', 'ok', 'okay', 'thanks', 'thank you', 'cool', 'yes', 'no', 'good', 'bye'];
+  return shortPhrases.includes(clean);
+};
+
 const AIChatModal = ({ documentCid, documentName, onClose }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -21,9 +48,13 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
   const [unlockPassword, setUnlockPassword] = useState('');
   const [unlockBusy, setUnlockBusy] = useState(false);
   const [unlockError, setUnlockError] = useState('');
+  const [suggestedQuestions, setSuggestedQuestions] = useState([]);
+  const [extractedText, setExtractedText] = useState(null);
   
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
+  const chatSessionRef = useRef(null);
+  const activeModelNameRef = useRef("gemini-2.5-flash");
   const PAGE_SIZE = 15;
 
   const scrollToBottom = () => {
@@ -64,6 +95,7 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
   };
 
   useEffect(() => {
+    chatSessionRef.current = null;
     const initDoc = async () => {
       setIsFetchingDoc(true);
       try {
@@ -74,13 +106,35 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
           const blob = await response.blob();
           const reader = new FileReader();
           reader.onloadend = () => {
-            setUnlockedContent(reader.result);
+            const decryptedDataUrl = reader.result;
+            setUnlockedContent(decryptedDataUrl);
+            
+            // Extract text content for public files
+            try {
+              const mimeType = decryptedDataUrl.split(',')[0].split(':')[1].split(';')[0];
+              const base64Data = decryptedDataUrl.split(',')[1];
+              const rawData = atob(base64Data);
+
+              if (mimeType === 'text/plain') {
+                setExtractedText(rawData);
+              } else if (mimeType === 'application/pdf') {
+                const pdfText = extractTextFromPdf(rawData);
+                if (pdfText && pdfText.trim().length > 10) {
+                  setExtractedText(pdfText);
+                  console.log("[DocuChain Chat] Public-stage extracted PDF text content length:", pdfText.length);
+                }
+              }
+            } catch (extErr) {
+              console.warn("[DocuChain Chat] Failed to extract text from public file:", extErr);
+            }
+            
             setIsFetchingDoc(false);
           };
           reader.readAsDataURL(blob);
           return;
         } else {
           setUnlockedContent(null);
+          setExtractedText(null);
         }
       } catch (e) {
         // Ignore
@@ -96,6 +150,127 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
     });
   }, [documentCid, documentName]);
 
+  useEffect(() => {
+    const checkAndGenerateSummary = async () => {
+      if (!unlockedContent) return;
+      
+      try {
+        const existingCount = await db.chats.where('documentCid').equals(documentCid).count();
+        if (existingCount === 0) {
+          setIsLoading(true);
+          
+          const mimeType = unlockedContent.split(',')[0].split(':')[1].split(';')[0];
+          const base64Data = unlockedContent.split(',')[1];
+          const rawData = atob(base64Data);
+
+          // Try text extraction synchronously
+          let localExtractedText = null;
+          if (mimeType === 'text/plain') {
+            localExtractedText = rawData;
+          } else if (mimeType === 'application/pdf') {
+            const pdfText = extractTextFromPdf(rawData);
+            if (pdfText && pdfText.trim().length > 10) {
+              localExtractedText = pdfText;
+              setExtractedText(pdfText); // Also sync to state for future chat messages
+            }
+          }
+
+          const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+          if (!apiKey) throw new Error("Gemini API key is not configured.");
+          
+          const genAI = new GoogleGenerativeAI(apiKey);
+          const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash",
+            generationConfig: { responseMimeType: "application/json" }
+          });
+
+          const systemPrompt = `Analyze the document and provide a response.
+You MUST output the response in one of these two formats:
+
+Format A (Preferred JSON):
+{
+  "summary": "Provide a clear, 3-bullet point summary of this document formatted using standard Markdown bullet points.",
+  "questions": [
+    "Suggested Question 1?",
+    "Suggested Question 2?",
+    "Suggested Question 3?"
+  ]
+}
+
+Format B (Text fallback with delimiters):
+Summary: [Your 3 bullets here] ||| Q1: [Question 1] ||| Q2: [Question 2] ||| Q3: [Question 3]`;
+
+          let result;
+          if (localExtractedText) {
+            const finalPrompt = `Context Document Content:\n${localExtractedText}\n\n${systemPrompt}`;
+            result = await model.generateContent([finalPrompt]);
+          } else {
+            // Binary fallback
+            if (base64Data.length > 2800000) {
+               throw new Error("Document is too large for the AI to process.");
+            }
+            const documentPart = {
+              inlineData: {
+                data: base64Data,
+                mimeType: mimeType
+              }
+            };
+            result = await model.generateContent([systemPrompt, documentPart]);
+          }
+
+          const resultResponse = await result.response;
+          const text = resultResponse.text();
+          
+          let summary = "";
+          let questions = [];
+
+          try {
+            const parsed = JSON.parse(text.trim());
+            summary = parsed.summary || "";
+            questions = parsed.questions || [];
+          } catch (jsonErr) {
+            console.warn("[DocuChain Chat] JSON parse failed, trying delimiters.", jsonErr);
+            if (text.includes("|||")) {
+              const parts = text.split("|||");
+              summary = parts[0].replace(/Summary:/i, "").trim();
+              questions = parts.slice(1).map(q => q.replace(/Q\d+:/i, "").trim());
+            } else {
+              summary = text;
+            }
+          }
+
+          if (!questions || questions.length === 0) {
+            questions = [
+              'Summarize the main purpose of this document.',
+              'What are the key terms or deadlines mentioned?',
+              'Identify the target audience or owner of this file.'
+            ];
+          }
+
+          const welcomeMsgObj = await saveMessage('ai', summary || text);
+          setMessages([welcomeMsgObj]);
+          setSuggestedQuestions(questions);
+          setTimeout(scrollToBottom, 50);
+        }
+      } catch (err) {
+        console.error("[DocuChain Chat] Error generating auto-summary:", err);
+        const fallbackText = `Hi! I'm ready to answer any questions about "${documentName}". What would you like to know?`;
+        const welcomeMsgObj = await saveMessage('ai', fallbackText);
+        setMessages([welcomeMsgObj]);
+        setSuggestedQuestions([
+          'Summarize the main purpose of this document.',
+          'What are the key terms or deadlines mentioned?',
+          'Identify the target audience or owner of this file.'
+        ]);
+        setTimeout(scrollToBottom, 50);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAndGenerateSummary();
+  }, [unlockedContent, documentCid, documentName]);
+
   const handleDecryptAndUnlock = async (key) => {
     setUnlockBusy(true);
     setUnlockError('');
@@ -107,6 +282,25 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
 
       const decryptedDataUrl = decryptDataUrlCipherToDataUrl(encryptedText, key);
       setUnlockedContent(decryptedDataUrl);
+      
+      // Perform text extraction synchronously here so it is immediately populated for existing/new encrypted chats
+      try {
+        const mimeType = decryptedDataUrl.split(',')[0].split(':')[1].split(';')[0];
+        const base64Data = decryptedDataUrl.split(',')[1];
+        const rawData = atob(base64Data);
+
+        if (mimeType === 'text/plain') {
+          setExtractedText(rawData);
+        } else if (mimeType === 'application/pdf') {
+          const pdfText = extractTextFromPdf(rawData);
+          if (pdfText && pdfText.trim().length > 10) {
+            setExtractedText(pdfText);
+            console.log("[DocuChain Chat] Decryption-stage extracted PDF text content length:", pdfText.length);
+          }
+        }
+      } catch (extErr) {
+        console.warn("[DocuChain Chat] Failed to extract text during decryption stage:", extErr);
+      }
     } catch (e) {
       setUnlockError(e.message || "Decryption failed.");
     } finally {
@@ -166,11 +360,209 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
     return newMsg;
   };
 
+  const sendMessageToGemini = async (userText, userMsgId) => {
+    try {
+      // Parse the Data URL
+      const mimeType = unlockedContent.split(',')[0].split(':')[1].split(';')[0];
+      const base64Data = unlockedContent.split(',')[1];
+
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) throw new Error("Gemini API key is not configured.");
+      
+      const genAI = new GoogleGenerativeAI(apiKey);
+
+      const primaryModelName = isLowComplexity(userText) ? "gemini-1.5-flash" : "gemini-2.5-flash";
+      activeModelNameRef.current = primaryModelName;
+      
+      const model = genAI.getGenerativeModel({ model: primaryModelName });
+
+      if (!chatSessionRef.current) {
+        // Fetch all history from IndexedDB to build the chat history
+        const dbHistory = await db.chats.where('documentCid').equals(documentCid).toArray();
+        // Exclude the current user message we just saved
+        const allHistory = dbHistory.filter(m => m.id !== userMsgId);
+        allHistory.sort((a, b) => a.timestamp - b.timestamp); // Sort oldest first
+        
+        const formattedHistory = [];
+        let lastRole = null;
+        
+        for (const msg of allHistory) {
+          const role = msg.role === 'user' ? 'user' : 'model';
+          
+          if (role === lastRole) {
+            if (formattedHistory.length > 0) {
+              formattedHistory[formattedHistory.length - 1].parts[0].text += "\n" + msg.text;
+            }
+            continue;
+          }
+          
+          formattedHistory.push({
+            role: role,
+            parts: [{ text: msg.text }]
+          });
+          lastRole = role;
+        }
+
+        // Attach document context
+        if (extractedText) {
+          // Optimization: Send extracted text context in the first user message parts
+          const textContext = `Context Document Content:\n${extractedText}\n\nAnalyze the attached document content.`;
+          
+          if (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
+            formattedHistory.unshift({
+              role: 'user',
+              parts: [{ text: textContext }]
+            });
+          } else if (formattedHistory.length > 0 && formattedHistory[0].role === 'user') {
+            formattedHistory[0].parts[0].text = `${textContext}\n\n${formattedHistory[0].parts[0].text}`;
+          } else {
+            formattedHistory.push({
+              role: 'user',
+              parts: [{ text: textContext }]
+            });
+          }
+        } else {
+          // Fallback: Send binary inlineData (only for first message of the chat session)
+          if (base64Data.length > 2800000) { 
+             throw new Error("Document is too large for the AI to process on the current tier. Please upload a smaller document.");
+          }
+          const documentPart = {
+            inlineData: {
+              data: base64Data,
+              mimeType: mimeType
+            }
+          };
+
+          if (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
+            formattedHistory.unshift({
+              role: 'user',
+              parts: [
+                { text: "Analyze the attached document." },
+                documentPart.inlineData
+              ]
+            });
+          } else if (formattedHistory.length > 0 && formattedHistory[0].role === 'user') {
+            formattedHistory[0].parts.push(documentPart.inlineData);
+          } else {
+            formattedHistory.push({
+              role: 'user',
+              parts: [
+                { text: "Analyze the attached document." },
+                documentPart.inlineData
+              ]
+            });
+          }
+        }
+        
+        chatSessionRef.current = model.startChat({
+          history: formattedHistory
+        });
+      }
+
+      let result;
+      try {
+        console.log(`[DocuChain Chat] Sending query to ${activeModelNameRef.current}...`);
+        result = await chatSessionRef.current.sendMessage(userText);
+      } catch (sendError) {
+        const errText = sendError?.message || '';
+        const is429 = errText.includes('429') || errText.toLowerCase().includes('rate limit') || errText.toLowerCase().includes('quota');
+        
+        if (is429 && activeModelNameRef.current === "gemini-2.5-flash") {
+          console.warn("[DocuChain Chat] Primary model 429 rate limited. Switching to gemini-1.5-flash fallback...");
+          activeModelNameRef.current = "gemini-1.5-flash";
+          
+          const fallbackModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+          
+          const dbHistory = await db.chats.where('documentCid').equals(documentCid).toArray();
+          const allHistory = dbHistory.filter(m => m.id !== userMsgId);
+          allHistory.sort((a, b) => a.timestamp - b.timestamp);
+          
+          const formattedHistory = [];
+          let lastRole = null;
+          for (const msg of allHistory) {
+            const role = msg.role === 'user' ? 'user' : 'model';
+            if (role === lastRole) {
+              if (formattedHistory.length > 0) {
+                formattedHistory[formattedHistory.length - 1].parts[0].text += "\n" + msg.text;
+              }
+              continue;
+            }
+            formattedHistory.push({
+              role: role,
+              parts: [{ text: msg.text }]
+            });
+            lastRole = role;
+          }
+
+          if (extractedText) {
+            const textContext = `Context Document Content:\n${extractedText}\n\nAnalyze the attached document content.`;
+            if (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
+              formattedHistory.unshift({ role: 'user', parts: [{ text: textContext }] });
+            } else if (formattedHistory.length > 0 && formattedHistory[0].role === 'user') {
+              formattedHistory[0].parts[0].text = `${textContext}\n\n${formattedHistory[0].parts[0].text}`;
+            } else {
+              formattedHistory.push({ role: 'user', parts: [{ text: textContext }] });
+            }
+          } else {
+            const documentPart = {
+              inlineData: { data: base64Data, mimeType: mimeType }
+            };
+            if (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
+              formattedHistory.unshift({
+                role: 'user',
+                parts: [{ text: "Analyze the attached document." }, documentPart.inlineData]
+              });
+            } else if (formattedHistory.length > 0 && formattedHistory[0].role === 'user') {
+              formattedHistory[0].parts.push(documentPart.inlineData);
+            } else {
+              formattedHistory.push({
+                role: 'user',
+                parts: [{ text: "Analyze the attached document." }, documentPart.inlineData]
+              });
+            }
+          }
+
+          chatSessionRef.current = fallbackModel.startChat({
+            history: formattedHistory
+          });
+
+          console.log("[DocuChain Chat] Retrying query on fallback model: gemini-1.5-flash...");
+          result = await chatSessionRef.current.sendMessage(userText);
+        } else {
+          throw sendError;
+        }
+      }
+
+      const resultResponse = await result.response;
+      const text = resultResponse.text();
+
+      // Save AI response
+      const aiMsgObj = await saveMessage('ai', text);
+      setMessages(prev => [...prev, aiMsgObj]);
+      setTimeout(scrollToBottom, 10);
+
+    } catch (error) {
+      console.error("[DocuChain Chat] Error sending message:", error);
+      const errText = error?.message || '';
+      const is429 = errText.includes('429') || errText.toLowerCase().includes('rate limit') || errText.toLowerCase().includes('quota');
+      
+      const errorMsg = is429
+        ? "System: All AI Tiers are currently heavily loaded. Please provide a new API key or try again shortly."
+        : `Sorry, I encountered an error: ${error.message}`;
+        
+      setMessages(prev => [...prev, { role: 'ai', text: errorMsg }]);
+      setTimeout(scrollToBottom, 10);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
     const userText = input.trim();
     setInput('');
+    setSuggestedQuestions([]); // Clear suggestions as soon as user types/sends a custom message
     setIsLoading(true);
     
     // Save User Msg
@@ -183,47 +575,26 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
     
     setTimeout(scrollToBottom, 10);
 
-    try {
-      // Parse the Data URL
-      const mimeType = unlockedContent.split(',')[0].split(':')[1].split(';')[0];
-      const base64Data = unlockedContent.split(',')[1];
+    await sendMessageToGemini(userText, userMsgObj.id);
+  };
 
-      // Limit to roughly 2MB max for the free tier API
-      if (base64Data.length > 2800000) { 
-         throw new Error("Document is too large for the AI to process on the current tier. Please upload a smaller document.");
-      }
+  const handleSuggestedQuestionClick = async (questionText) => {
+    if (isLoading) return;
+    
+    setSuggestedQuestions([]); // Hide suggestions for the rest of the session
+    setIsLoading(true);
+    
+    // Save User Msg
+    const userMsgObj = await saveMessage('user', questionText);
+    
+    setMessages(prev => {
+       const filtered = prev.filter(m => !m.isInitial);
+       return [...filtered, userMsgObj];
+    });
+    
+    setTimeout(scrollToBottom, 10);
 
-      const documentPart = {
-        inlineData: {
-          data: base64Data,
-          mimeType: mimeType
-        }
-      };
-
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) throw new Error("Gemini API key is not configured.");
-      
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-      const prompt = `Answer this request based on the provided document: ${userText}`;
-      
-      const result = await model.generateContent([prompt, documentPart]);
-      const resultResponse = await result.response;
-      const text = resultResponse.text();
-
-      // Save AI response
-      const aiMsgObj = await saveMessage('ai', text);
-      setMessages(prev => [...prev, aiMsgObj]);
-      setTimeout(scrollToBottom, 10);
-
-    } catch (error) {
-      const errorMsg = `Sorry, I encountered an error: ${error.message}`;
-      setMessages(prev => [...prev, { role: 'ai', text: errorMsg }]);
-      setTimeout(scrollToBottom, 10);
-    } finally {
-      setIsLoading(false);
-    }
+    await sendMessageToGemini(questionText, userMsgObj.id);
   };
 
   return (
@@ -352,6 +723,26 @@ const AIChatModal = ({ documentCid, documentName, onClose }) => {
               )}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* Suggested Questions */}
+            {suggestedQuestions && suggestedQuestions.length > 0 && (
+              <div className="px-6 py-3 flex flex-col gap-2 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800/30 transition-colors">
+                <p className="text-[10px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase">Suggested Questions</p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedQuestions.map((q, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSuggestedQuestionClick(q)}
+                      disabled={isLoading}
+                      className="text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 px-3.5 py-2 rounded-full transition-all duration-200 text-left hover:scale-[1.01] hover:shadow-sm"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Input */}
             <div className="p-5 border-t border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/80 z-10 transition-colors">

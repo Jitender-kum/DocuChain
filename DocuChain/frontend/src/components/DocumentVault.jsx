@@ -91,25 +91,61 @@ const DocumentVault = ({ walletAddress }) => {
       if (!window.ethereum) throw new Error('MetaMask not found.');
 
       const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const signerAddress = await signer.getAddress();
       const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS;
       if (!contractAddress || contractAddress.includes('your_deployed')) {
         throw new Error('Smart Contract address not configured in .env');
       }
 
-      const contract = new ethers.Contract(contractAddress, abi, provider);
-      const docs = await contract.getUserDocuments();
+      console.log("[DocuChain] Connecting to contract at:", contractAddress);
+      console.log("[DocuChain] Fetching documents for wallet:", signerAddress);
 
-      const formattedDocs = docs
-        .map((doc) => ({
-          ipfsHash: doc.ipfsHash,
-          fileName: doc.fileName,
-          uploadTime: Number(doc.uploadTime) * 1000,
-          owner: doc.owner,
-        }))
+      const contract = new ethers.Contract(contractAddress, abi, signer);
+      // Explicitly pass { from: signerAddress } to ensure msg.sender is set in read call
+      const docs = await contract.getUserDocuments({ from: signerAddress });
+      console.log("[DocuChain] Raw documents from contract:", docs);
+
+      if (!docs) {
+        setDocuments([]);
+        return;
+      }
+
+      const docsArray = Array.from(docs);
+      const formattedDocs = docsArray
+        .map((doc) => {
+          if (!doc) return null;
+          
+          // Fallback to indices if fields are not named in the returned structure
+          const ipfsHash = doc.ipfsHash || doc[0] || '';
+          const fileName = doc.fileName || doc[1] || '';
+          
+          let uploadTime = 0;
+          try {
+            const rawTime = doc.uploadTime !== undefined ? doc.uploadTime : doc[2];
+            if (rawTime !== undefined && rawTime !== null) {
+              uploadTime = Number(rawTime.toString()) * 1000;
+            }
+          } catch (tErr) {
+            console.error("[DocuChain] Error parsing uploadTime BigInt:", tErr);
+          }
+          
+          const owner = doc.owner || doc[3] || '';
+
+          return {
+            ipfsHash,
+            fileName,
+            uploadTime,
+            owner,
+          };
+        })
+        .filter((d) => d && d.ipfsHash)
         .reverse();
 
+      console.log("[DocuChain] Formatted documents:", formattedDocs);
       setDocuments(formattedDocs);
     } catch (err) {
+      console.error("[DocuChain] Error in fetchDocuments:", err);
       setError(err.message || 'Failed to fetch documents.');
     } finally {
       setLoading(false);
